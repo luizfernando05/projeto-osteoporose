@@ -7,6 +7,7 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
+  Pressable,
 } from 'react-native';
 import { router } from 'expo-router';
 
@@ -17,9 +18,11 @@ export default function Home() {
   const [zScore, setZScore] = useState('');
   const [age, setAge] = useState('');
 
-  const [occupationStudent, setOccupationStudent] = useState('');
+  const [isStudent, setIsStudent] = useState<boolean | null>(null);
 
-  const [medicalHistory, setMedicalHistory] = useState('');
+  const [hasMedicalHistory, setHasMedicalHistory] = useState<boolean | null>(
+    null,
+  );
 
   async function handlePredict() {
     if (!tScore.trim()) {
@@ -34,18 +37,22 @@ export default function Home() {
         t_score_value: Number(tScore.replace(',', '.')),
       };
 
-      const allAdvancedFieldsFilled =
-        age && zScore && occupationStudent && medicalHistory;
+      const useStacking =
+        age.trim() &&
+        zScore.trim() &&
+        isStudent !== null &&
+        hasMedicalHistory !== null;
 
-      if (allAdvancedFieldsFilled) {
+      if (useStacking) {
         payload.age = Number(age);
 
         payload.z_score_value = Number(zScore.replace(',', '.'));
 
-        payload.occupation_student = Number(occupationStudent);
+        payload.occupation_student = isStudent ? 1 : 0;
 
-        payload.medical_history_uterus_rem_appendex_disk =
-          Number(medicalHistory);
+        payload.medical_history_uterus_rem_appendex_disk = hasMedicalHistory
+          ? 1
+          : 0;
       }
 
       const response = await fetch('http://192.168.15.171:8000/predict', {
@@ -55,6 +62,10 @@ export default function Home() {
         },
         body: JSON.stringify(payload),
       });
+
+      if (!response.ok) {
+        throw new Error(`Erro HTTP ${response.status}`);
+      }
 
       const result = await response.json();
 
@@ -66,6 +77,8 @@ export default function Home() {
         },
       });
     } catch (error) {
+      console.error(error);
+
       Alert.alert('Erro', 'Não foi possível realizar a predição.');
     } finally {
       setLoading(false);
@@ -97,6 +110,11 @@ export default function Home() {
 
       <Text style={styles.section}>Dados complementares</Text>
 
+      <Text style={styles.helper}>
+        Ao preencher todos os campos abaixo, será utilizado o modelo mais
+        completo.
+      </Text>
+
       <Text style={styles.label}>Idade</Text>
 
       <TextInput
@@ -117,41 +135,112 @@ export default function Home() {
         style={styles.input}
       />
 
-      <Text style={styles.label}>Occupation Student</Text>
+      <Text style={styles.label}>Você é estudante?</Text>
 
-      <TextInput
-        value={occupationStudent}
-        onChangeText={setOccupationStudent}
-        placeholder="0 ou 1"
-        keyboardType="number-pad"
-        style={styles.input}
-      />
+      <View style={styles.optionGroup}>
+        <Pressable
+          style={[
+            styles.optionButton,
+            isStudent === true && styles.optionButtonSelected,
+          ]}
+          onPress={() => setIsStudent(true)}
+        >
+          <Text
+            style={[
+              styles.optionText,
+              isStudent === true && styles.optionTextSelected,
+            ]}
+          >
+            Sim
+          </Text>
+        </Pressable>
 
-      <Text style={styles.label}>Histórico Médico</Text>
+        <Pressable
+          style={[
+            styles.optionButton,
+            isStudent === false && styles.optionButtonSelected,
+          ]}
+          onPress={() => setIsStudent(false)}
+        >
+          <Text
+            style={[
+              styles.optionText,
+              isStudent === false && styles.optionTextSelected,
+            ]}
+          >
+            Não
+          </Text>
+        </Pressable>
+      </View>
 
-      <TextInput
-        value={medicalHistory}
-        onChangeText={setMedicalHistory}
-        placeholder="0 ou 1"
-        keyboardType="number-pad"
-        style={styles.input}
-      />
-
-      <Text style={styles.button} onPress={handlePredict}>
-        {loading ? 'Realizando predição...' : 'Ver resultado'}
+      <Text style={styles.label}>
+        Possui histórico de cirurgia uterina, apêndice ou problema de disco?
       </Text>
 
-      {loading && <ActivityIndicator style={{ marginTop: 12 }} />}
+      <View style={styles.optionGroup}>
+        <Pressable
+          style={[
+            styles.optionButton,
+            hasMedicalHistory === true && styles.optionButtonSelected,
+          ]}
+          onPress={() => setHasMedicalHistory(true)}
+        >
+          <Text
+            style={[
+              styles.optionText,
+              hasMedicalHistory === true && styles.optionTextSelected,
+            ]}
+          >
+            Sim
+          </Text>
+        </Pressable>
+
+        <Pressable
+          style={[
+            styles.optionButton,
+            hasMedicalHistory === false && styles.optionButtonSelected,
+          ]}
+          onPress={() => setHasMedicalHistory(false)}
+        >
+          <Text
+            style={[
+              styles.optionText,
+              hasMedicalHistory === false && styles.optionTextSelected,
+            ]}
+          >
+            Não
+          </Text>
+        </Pressable>
+      </View>
+
+      <Pressable
+        style={[styles.button, loading && styles.buttonDisabled]}
+        onPress={handlePredict}
+        disabled={loading}
+      >
+        <Text style={styles.buttonText}>
+          {loading ? 'Realizando predição...' : 'Ver resultado'}
+        </Text>
+      </Pressable>
+
+      {loading && (
+        <ActivityIndicator
+          size="large"
+          color="#2563EB"
+          style={{ marginTop: 16 }}
+        />
+      )}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    paddingTop: 80,
-    paddingHorizontal: 24,
-    paddingBottom: 40,
+    flexGrow: 1,
     backgroundColor: '#FFF',
+    paddingHorizontal: 24,
+    paddingTop: 80,
+    paddingBottom: 40,
   },
 
   header: {
@@ -164,20 +253,22 @@ const styles = StyleSheet.create({
     fontSize: 34,
     lineHeight: 40,
     fontWeight: '700',
+    color: '#171717',
     marginBottom: 32,
   },
 
   section: {
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: 8,
+    color: '#171717',
     marginTop: 16,
+    marginBottom: 12,
   },
 
   helper: {
     color: '#737373',
-    marginBottom: 20,
     lineHeight: 20,
+    marginBottom: 20,
   },
 
   label: {
@@ -191,17 +282,56 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 16,
     fontSize: 16,
+    marginBottom: 18,
+    backgroundColor: '#FFF',
+  },
+
+  optionGroup: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+
+  optionButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+  },
+
+  optionButtonSelected: {
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
+  },
+
+  optionText: {
+    color: '#374151',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+
+  optionTextSelected: {
+    color: '#FFFFFF',
   },
 
   button: {
     marginTop: 16,
     backgroundColor: '#2563EB',
-    color: '#FFF',
-    textAlign: 'center',
-    paddingVertical: 16,
+    paddingVertical: 18,
     borderRadius: 12,
+    alignItems: 'center',
+  },
+
+  buttonDisabled: {
+    opacity: 0.7,
+  },
+
+  buttonText: {
+    color: '#FFF',
     fontSize: 16,
     fontWeight: '600',
   },
